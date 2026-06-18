@@ -16,8 +16,8 @@ import {
   toBlenderPython,
   toMaterialXGraph,
   toMaterialX
-} from "./materialModel.js?v=sss5";
-import { PreviewCompare } from "./previewScene.js?v=sss5";
+} from "./materialModel.js?v=sss8";
+import { PreviewCompare } from "./previewScene.js?v=sss8";
 
 const h = React.createElement;
 

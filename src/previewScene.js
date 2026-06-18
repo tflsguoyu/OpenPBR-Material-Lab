@@ -5,7 +5,7 @@ import { WebGPURenderer, MeshSSSNodeMaterial, TSL } from "three/webgpu";
 import { OrbitControls as ThreeOrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=sss5";
+import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=sss8";
 
 const h = React.createElement;
 
@@ -34,6 +34,11 @@ export function PreviewCompare({
 }) {
   const shellRef = useRef(null);
   const cameraSyncRef = useRef(null);
+  const [fps, setFps] = useState(null);
+  const webGpuAvailable = canUseWebGpu();
+  const rendererStatus = previewMode === "sss"
+    ? webGpuAvailable ? "Renderer: WebGPU SSS" : "Renderer: WebGL Physical fallback"
+    : "Renderer: WebGL Physical";
 
   function updateSplitFromClientX(clientX) {
     const bounds = shellRef.current?.getBoundingClientRect();
@@ -56,7 +61,13 @@ export function PreviewCompare({
 
   return h("div", { className: "compare-canvas-shell", ref: shellRef },
     h("div", { className: "compare-layer" },
-      h(PreviewCanvas, { material: adjustedMaterial, previewMode, interactive: true, cameraSyncRef })
+      h(PreviewCanvas, {
+        material: adjustedMaterial,
+        previewMode,
+        interactive: true,
+        cameraSyncRef,
+        onFps: setFps
+      })
     ),
     h("div", {
       className: "compare-layer generated-clip",
@@ -74,6 +85,8 @@ export function PreviewCompare({
         onClick: () => onPreviewModeChange("sss")
       }, "SSS")
     ),
+    h("div", { className: "preview-renderer-status" }, rendererStatus),
+    h("div", { className: "preview-fps-status" }, fps == null ? "FPS: --" : `FPS: ${fps}`),
     h("div", {
       className: "compare-label-pair",
       style: { left: `${split}%` }
@@ -91,7 +104,7 @@ export function PreviewCompare({
   );
 }
 
-function PreviewCanvas({ material, previewMode, interactive = false, cameraSyncRef }) {
+function PreviewCanvas({ material, previewMode, interactive = false, cameraSyncRef, onFps }) {
   const useWebGpu = previewMode === "sss" && canUseWebGpu();
   return h(Canvas, {
     key: useWebGpu ? "webgpu" : "webgl",
@@ -107,8 +120,26 @@ function PreviewCanvas({ material, previewMode, interactive = false, cameraSyncR
     h(Suspense, { fallback: null },
       h(MaterialTestBall, { material, previewMode: useWebGpu ? "sss" : "physical" })
     ),
+    onFps ? h(FpsSampler, { onFps }) : null,
     interactive ? h(OrbitControls, { cameraSyncRef }) : h(CameraFollower, { cameraSyncRef })
   );
+}
+
+function FpsSampler({ onFps }) {
+  const frames = useRef(0);
+  const elapsed = useRef(0);
+
+  useFrame((_, delta) => {
+    frames.current += 1;
+    elapsed.current += delta;
+    if (elapsed.current >= 0.5) {
+      onFps(Math.round(frames.current / elapsed.current));
+      frames.current = 0;
+      elapsed.current = 0;
+    }
+  });
+
+  return null;
 }
 
 async function createWebGpuRenderer(props) {
