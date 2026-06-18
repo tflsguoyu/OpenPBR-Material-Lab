@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenPBR Material Lab</title>
+    <link rel="stylesheet" href="./src/app.css?v=githubpages1" />
+    <script type="importmap">
+      {
+        "imports": {
+          "react": "https://esm.sh/react@19.2.0",
+          "react/jsx-runtime": "https://esm.sh/react@19.2.0/jsx-runtime",
+          "react-dom/client": "https://esm.sh/react-dom@19.2.0/client",
+          "three": "https://esm.sh/three@0.181.2",
+          "@react-three/fiber": "https://esm.sh/@react-three/fiber@9.4.0?external=react,react-dom,three",
+          "three/addons/loaders/OBJLoader.js": "https://esm.sh/three@0.181.2/examples/jsm/loaders/OBJLoader.js",
+          "three/addons/": "https://esm.sh/three@0.181.2/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root">
+      <div class="boot-message">
+        Loading OpenPBR Material Lab...
+        <small>If this stays visible, the CDN modules for React, Three.js, or R3F did not load.</small>
+      </div>
+    </div>
+    <script type="module" src="./src/standalone.js?v=githubpages1"></script>
+  </body>
+</html>
