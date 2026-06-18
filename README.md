@@ -23,7 +23,45 @@ User description or preset
   -> Export: JSON / .mtlx / Blender Python
 ```
 
-The preview uses Three.js `MeshPhysicalMaterial`, so it is an approximation of OpenPBR rather than a full reference OpenPBR renderer.
+The preview has two renderer modes:
+
+- **Physical** keeps the original WebGL `MeshPhysicalMaterial` path. It maps OpenPBR values to the closest Three.js physical material controls and includes a lightweight subsurface visual approximation.
+- **SSS** uses the experimental Three.js WebGPU `MeshSSSNodeMaterial` path when WebGPU is available. This preserves the old Physical renderer as a fallback while adding a dedicated subsurface scattering term.
+
+Both modes are approximations of OpenPBR rather than full reference OpenPBR renderers.
+
+## Preview Mapping Notes
+
+The Physical preview maps OpenPBR controls to Three.js as follows:
+
+- `base_color`, `base_weight` -> `color`
+- `base_metalness` -> `metalness`
+- `specular_roughness` -> `roughness`
+- `specular_roughness_anisotropy` -> `anisotropy`
+- `specular_ior` -> `ior`
+- `specular_weight`, `specular_color` -> `specularIntensity`, `specularColor`
+- `coat_weight`, `coat_roughness` -> `clearcoat`, `clearcoatRoughness`
+- `fuzz_weight`, `fuzz_color`, `fuzz_roughness` -> `sheen`, `sheenColor`, `sheenRoughness`
+- `thin_film_weight`, `thin_film_ior`, `thin_film_thickness` -> `iridescence`, `iridescenceIOR`, `iridescenceThicknessRange`
+- `transmission_weight`, `transmission_color`, `transmission_depth`, `transmission_dispersion_scale` -> `transmission`, `attenuationColor`, `attenuationDistance`, `thickness`, `dispersion`
+- `geometry_opacity` -> `opacity`/`transparent`, except transmissive materials keep `opacity` at 1 because Three.js transmission expects that
+- `emission_color`, `emission_luminance` -> `emissive`, `emissiveIntensity`
+
+The Physical subsurface approximation is intentionally simple:
+
+- `subsurface_weight` blends `subsurface_color` into `base_color`
+- `subsurface_weight` reduces preview metalness and slightly lowers roughness
+- `subsurface_weight` adds a small amount of Three.js `transmission`
+- `subsurface_radius` increases preview `thickness`
+- `subsurface_color` influences `attenuationColor`
+- `subsurface_color` adds a subtle emissive lift so darker areas read as softly translucent
+
+The SSS preview mode then adds the experimental WebGPU node material controls:
+
+- `subsurface_color` -> `thicknessColorNode`
+- `subsurface_weight` -> ambient, attenuation, and scale strength
+- `subsurface_radius` -> scattering scale and power
+- `subsurface_scatter_anisotropy` -> distortion strength
 
 ## Run Locally
 
@@ -51,7 +89,8 @@ No bundling is required. React, Three.js, and React Three Fiber are loaded from 
 openpbr-material-lab/
   index.html                 Static GitHub Pages entry
   src/
-    standalone.js            React/R3F app
+    standalone.js            App state, panels, and material editing flow
+    previewScene.js          Three.js preview scene, OBJ loading, camera sync
     materialModel.js         OpenPBR, MaterialX, export logic
     app.css                  UI styles
   assets/

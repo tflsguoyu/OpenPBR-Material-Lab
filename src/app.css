@@ -475,9 +475,6 @@ button:hover,
 }
 
 .compare-label {
-  position: absolute;
-  z-index: 3;
-  bottom: 18px;
   padding: 6px 10px;
   border: 1px solid rgba(128, 184, 255, 0.34);
   border-radius: 8px;
@@ -488,12 +485,56 @@ button:hover,
   pointer-events: none;
 }
 
-.compare-label-left {
-  left: 18px;
+.compare-label-pair {
+  position: absolute;
+  z-index: 5;
+  top: 62px;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  transform: translateX(-1px);
 }
 
-.compare-label-right {
-  right: 18px;
+.compare-label-generated {
+  position: absolute;
+  right: 10px;
+  white-space: nowrap;
+}
+
+.compare-label-adjusted {
+  position: absolute;
+  left: 10px;
+  white-space: nowrap;
+}
+
+.preview-mode-toggle {
+  position: absolute;
+  z-index: 5;
+  top: 14px;
+  right: 14px;
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid rgba(128, 184, 255, 0.34);
+  border-radius: 8px;
+  background: rgba(17, 21, 27, 0.78);
+}
+
+.preview-mode-toggle button {
+  min-width: 62px;
+  min-height: 28px;
+  border: 0;
+  border-radius: 6px;
+  color: #aebfd1;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.preview-mode-toggle button.active {
+  color: #07121f;
+  background: #9cc9ff;
 }
 
 .compare-divider {

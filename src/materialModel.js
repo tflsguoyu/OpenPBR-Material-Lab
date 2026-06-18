@@ -524,22 +524,45 @@ export function materialFromPrompt(prompt) {
 
 export function toThreePhysicalProps(material) {
   const p = clampMaterial(material).openpbr;
+  const sssWeight = p.subsurface_weight;
+  const sssColor = p.subsurface_color;
+  const sssMix = Math.min(0.6, sssWeight * 0.6);
+  const transmission = Math.min(1, (p.transmission_weight + sssWeight * 0.28) * (1 - p.base_metalness));
+  const alpha = p.geometry_opacity;
+  const previewOpacity = transmission > 0 ? 1 : alpha;
+  const threeIor = clampNumber(p.specular_ior, 1, 2.333);
+  const baseColor = p.base_color.map((channel, index) => (
+    channel * (1 - sssMix) + sssColor[index] * sssMix
+  ) * p.base_weight);
+  const emissionBoost = sssWeight * 0.18;
+  const previewEmissive = p.emission_color.map((channel, index) => Math.min(1, channel + sssColor[index] * emissionBoost));
   return {
-    color: rgbToHex(p.base_color),
-    metalness: p.base_metalness,
-    roughness: p.specular_roughness,
+    color: rgbToHex(baseColor),
+    metalness: p.base_metalness * (1 - sssWeight * 0.7),
+    roughness: Math.max(0.04, p.specular_roughness * (1 - sssWeight * 0.18)),
+    anisotropy: p.specular_roughness_anisotropy,
+    ior: threeIor,
+    specularIntensity: p.specular_weight,
+    specularColor: rgbToHex(p.specular_color),
     clearcoat: p.coat_weight,
     clearcoatRoughness: p.coat_roughness,
     sheen: p.fuzz_weight,
-    sheenRoughness: Math.min(1, p.specular_roughness + 0.18),
+    sheenColor: rgbToHex(p.fuzz_color),
+    sheenRoughness: p.fuzz_roughness,
     iridescence: p.thin_film_weight,
-    iridescenceIOR: p.specular_ior,
+    iridescenceIOR: clampNumber(p.thin_film_ior, 1, 2.333),
     iridescenceThicknessRange: [Math.max(1, p.thin_film_thickness * 1000 - 80), p.thin_film_thickness * 1000 + 80],
-    transmission: Math.max(0, 1 - p.geometry_opacity) * (1 - p.base_metalness),
-    opacity: p.geometry_opacity,
-    transparent: p.geometry_opacity < 0.995,
-    emissive: rgbToHex(p.emission_color),
-    emissiveIntensity: p.emission_luminance
+    transmission,
+    thickness: p.geometry_thin_walled ? 0 : Math.max(0.001, p.transmission_depth + sssWeight * p.subsurface_radius * 0.35),
+    attenuationColor: rgbToHex(mixColor(p.transmission_color, sssColor, sssWeight)),
+    attenuationDistance: p.transmission_depth > 0 || sssWeight > 0
+      ? Math.max(0.001, p.transmission_depth + p.subsurface_radius * sssWeight)
+      : Infinity,
+    dispersion: p.transmission_dispersion_scale,
+    opacity: previewOpacity,
+    transparent: alpha < 0.995 || transmission > 0,
+    emissive: rgbToHex(previewEmissive),
+    emissiveIntensity: p.emission_luminance + emissionBoost
   };
 }
 
@@ -772,6 +795,11 @@ function clampNumber(value, min, max) {
 function clampColor(value) {
   const color = Array.isArray(value) ? value : [0, 0, 0];
   return [0, 1, 2].map((index) => clampNumber(color[index] ?? 0, 0, 1));
+}
+
+function mixColor(a, b, weight) {
+  const amount = clampNumber(weight, 0, 1);
+  return [0, 1, 2].map((index) => a[index] * (1 - amount) + b[index] * amount);
 }
 
 function rgbToHex(rgb) {
