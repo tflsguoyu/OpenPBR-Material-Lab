@@ -109,6 +109,14 @@ node scripts/validate-materials.mjs
 
 The validation script checks the built-in material presets and every local OpenPBR example in `assets/examples`.
 
+## TODO
+
+- Add texture/procedural connections for all OpenPBR `float` and `color3` inputs, matching the official MaterialX `open_pbr_surface` nodedef.
+- Treat `color3` inputs as color textures, including `base_color`, `specular_color`, `transmission_color`, `subsurface_color`, `fuzz_color`, `coat_color`, and `emission_color`.
+- Treat `float` inputs as grayscale maps, including weights, roughness values, IOR values, transmission depth, subsurface radius, thin-film controls, emission luminance, and `geometry_opacity`.
+- Add dedicated map handling for `geometry_normal`, `geometry_coat_normal`, `geometry_tangent`, and `geometry_coat_tangent`.
+- Keep `geometry_thin_walled` as a uniform material-level boolean instead of a texture input.
+
 ## Notes
 
 - The natural-language generator is currently deterministic local prototype logic.
