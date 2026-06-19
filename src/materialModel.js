@@ -68,8 +68,73 @@ export const DEFAULT_MATERIAL = {
 
 export const PREVIEW_SHELL_THICKNESS = 0.117;
 
+export const PARQUET_WOOD_MATERIAL = {
+  name: "warm parquet wood",
+  description: "Warm butcher-block/parquet wood with varied plank tones, directional grain, satin finish, and subtle clear coat.",
+  openpbr: {
+    base_weight: 1,
+    base_color: [0.72, 0.43, 0.19],
+    base_diffuse_roughness: 0.38,
+    base_metalness: 0,
+    specular_weight: 0.55,
+    specular_color: [1, 0.92, 0.82],
+    specular_roughness: 0.48,
+    specular_roughness_anisotropy: 0.35,
+    specular_ior: 1.48,
+    transmission_weight: 0,
+    subsurface_weight: 0,
+    coat_weight: 0.18,
+    coat_color: [1, 0.9, 0.78],
+    coat_roughness: 0.32,
+    coat_ior: 1.5,
+    fuzz_weight: 0.04,
+    fuzz_color: [0.9, 0.62, 0.34],
+    fuzz_roughness: 0.72,
+    emission_luminance: 0,
+    geometry_opacity: 1,
+    geometry_thin_walled: false,
+    thin_film_weight: 0
+  },
+  explicitOpenPbrKeys: [
+    "base_weight",
+    "base_color",
+    "base_diffuse_roughness",
+    "base_metalness",
+    "specular_weight",
+    "specular_color",
+    "specular_roughness",
+    "specular_roughness_anisotropy",
+    "specular_ior",
+    "transmission_weight",
+    "subsurface_weight",
+    "coat_weight",
+    "coat_color",
+    "coat_roughness",
+    "coat_ior",
+    "fuzz_weight",
+    "fuzz_color",
+    "fuzz_roughness",
+    "emission_luminance",
+    "geometry_opacity",
+    "geometry_thin_walled",
+    "thin_film_weight"
+  ],
+  inputSources: {
+    base_color: "texture",
+    specular_roughness: "procedural"
+  },
+  textures: [
+    {
+      name: "base_color",
+      file: "assets/textures/base_color.png",
+      colorspace: "srgb"
+    }
+  ],
+  procedural: {}
+};
+
 export const MATERIAL_PRESETS = [
-  DEFAULT_MATERIAL,
+  PARQUET_WOOD_MATERIAL,
   {
     name: "warm translucent jade",
     description: "Soft green jade with waxy surface, modest subsurface body, and low polish.",
@@ -478,6 +543,7 @@ export function clampMaterial(material) {
   }
   next.explicitOpenPbrKeys = normalizeOpenPbrKeys(explicitKeys);
   next.inputSources = normalizeInputSources(next.inputSources);
+  next.textures = normalizeTextures(next.textures);
   return next;
 }
 
@@ -675,9 +741,10 @@ export function materialFromMaterialXGraph(graph, fallback = DEFAULT_MATERIAL) {
     }
   }
 
+  const nodesByName = new Map(nodes.map((node) => [node?.name, node]));
   const procedural = {};
   for (const node of nodes) {
-    if (!node || node.category === "open_pbr_surface" || node.category === "surfacematerial" || node.bindsTo) continue;
+    if (!node || node.category === "open_pbr_surface" || node.category === "surfacematerial" || node.category === "image" || node.bindsTo) continue;
     procedural[node.name || node.category] = {
       type: node.category,
       ...(node.inputs || {})
@@ -685,9 +752,18 @@ export function materialFromMaterialXGraph(graph, fallback = DEFAULT_MATERIAL) {
   }
   next.procedural = procedural;
   next.inputSources = {};
+  next.textures = [];
   for (const connection of Array.isArray(materialx?.connections) ? materialx.connections : []) {
     if (connection?.input && connection?.kind) {
       next.inputSources[connection.input] = connection.kind;
+      const sourceNode = nodesByName.get(connection.from);
+      if (connection.kind === "texture" && sourceNode?.category === "image" && sourceNode.inputs?.file) {
+        next.textures.push({
+          name: connection.input,
+          file: sourceNode.inputs.file,
+          colorspace: sourceNode.inputs.colorspace
+        });
+      }
     }
   }
 
@@ -887,12 +963,30 @@ function normalizeInputSources(inputSources = {}) {
   return normalized;
 }
 
+function normalizeTextures(textures = []) {
+  if (!Array.isArray(textures)) return [];
+  return textures
+    .filter((texture) => texture?.name && texture?.file)
+    .map((texture) => ({
+      name: String(texture.name),
+      file: String(texture.file),
+      colorspace: texture.colorspace ? String(texture.colorspace) : undefined
+    }));
+}
+
 function sourceNodeName(safeName, key, source) {
   return `${safeName}_${key}_${source}`;
 }
 
-function sourceFileName(key) {
-  return `textures/${key}.png`;
+function sourceFileName(material, key) {
+  const texture = normalizeTextures(material.textures).find((candidate) => candidate.name === key);
+  return texture?.file || `assets/textures/${key}.png`;
+}
+
+function sourceColorSpace(material, key, type) {
+  const texture = normalizeTextures(material.textures).find((candidate) => candidate.name === key);
+  if (texture?.colorspace) return texture.colorspace;
+  return type === "color3" ? "srgb" : "linear";
 }
 
 function materialXSourceNodes(material, safeName) {
@@ -901,7 +995,7 @@ function materialXSourceNodes(material, safeName) {
     const name = sourceNodeName(safeName, key, source);
     if (source === "texture") {
       return `  <image name="${name}" type="${type}">
-    <input name="file" type="filename" value="${sourceFileName(key)}" />
+    <input name="file" type="filename" value="${sourceFileName(material, key)}" />
   </image>`;
     }
     return `  <noise2d name="${name}" type="${type}">
@@ -921,8 +1015,8 @@ function materialXGraphSourceNodes(material, safeName) {
       sourceKind: source,
       bindsTo: key,
       inputs: source === "texture"
-        ? { file: sourceFileName(key) }
-        : { scale: 25 }
+        ? { file: sourceFileName(material, key), colorspace: sourceColorSpace(material, key, type) }
+        : { scale: 25, amplitude: type === "color3" ? 0.18 : 0.12, octaves: 4 }
     };
   });
 }

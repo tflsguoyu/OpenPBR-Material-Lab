@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
-  DEFAULT_MATERIAL,
   MATERIAL_PRESETS,
   OPENPBR_EXAMPLE_PRESETS,
   ADVANCED_PARAMETER_GROUPS,
@@ -16,15 +15,16 @@ import {
   toBlenderPython,
   toMaterialXGraph,
   toMaterialX
-} from "./materialModel.js?v=mtlx22";
-import { PreviewCompare } from "./previewScene.js?v=mtlx22";
+} from "./materialModel.js?v=mtlx25";
+import { PreviewCompare } from "./previewScene.js?v=mtlx25";
 
 const h = React.createElement;
+const INITIAL_MATERIAL = MATERIAL_PRESETS[0];
 
 function App() {
-  const [generatedMaterial, setGeneratedMaterial] = useState(DEFAULT_MATERIAL);
-  const [material, setMaterial] = useState(DEFAULT_MATERIAL);
-  const [prompt, setPrompt] = useState(DEFAULT_MATERIAL.description);
+  const [generatedMaterial, setGeneratedMaterial] = useState(INITIAL_MATERIAL);
+  const [material, setMaterial] = useState(INITIAL_MATERIAL);
+  const [prompt, setPrompt] = useState(INITIAL_MATERIAL.description);
   const [graphDraft, setGraphDraft] = useState("");
   const [graphMessage, setGraphMessage] = useState("Synced from OpenPBR parameters.");
   const [compareSplit, setCompareSplit] = useState(50);

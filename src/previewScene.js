@@ -5,13 +5,13 @@ import { WebGPURenderer, MeshSSSNodeMaterial, TSL } from "three/webgpu";
 import { OrbitControls as ThreeOrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx22";
+import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx25";
 import {
   createMaterialXPreviewMaterial,
   prepareMaterialXGeometry,
   updateMaterialXTransmissionTarget,
   updateMaterialXUniforms
-} from "./materialxPreview.js?v=mtlx22";
+} from "./materialxPreview.js?v=mtlx25";
 
 const h = React.createElement;
 
@@ -30,6 +30,23 @@ const TEST_BALL_MESHES = [
   }]
 ];
 const ENVIRONMENT_MAP_URL = "./assets/envmap/san_giuseppe_bridge.hdr";
+const THREE_TEXTURE_INPUTS = {
+  base_color: { map: "map", color: true },
+  base_metalness: { map: "metalnessMap" },
+  specular_weight: { map: "specularIntensityMap" },
+  specular_color: { map: "specularColorMap", color: true },
+  specular_roughness: { map: "roughnessMap" },
+  transmission_weight: { map: "transmissionMap" },
+  transmission_depth: { map: "thicknessMap" },
+  coat_weight: { map: "clearcoatMap" },
+  coat_roughness: { map: "clearcoatRoughnessMap" },
+  fuzz_color: { map: "sheenColorMap", color: true },
+  fuzz_roughness: { map: "sheenRoughnessMap" },
+  emission_color: { map: "emissiveMap", color: true },
+  geometry_opacity: { map: "alphaMap" },
+  thin_film_weight: { map: "iridescenceMap" },
+  thin_film_thickness: { map: "iridescenceThicknessMap" }
+};
 
 export function PreviewCompare({
   generatedMaterial,
@@ -323,7 +340,9 @@ function MaterialTestBall({ material, previewMode }) {
 
 function createPreviewMaterial(material, props, previewMode) {
   if (previewMode !== "sss") {
-    return new THREE.MeshPhysicalMaterial(props);
+    const physicalMaterial = new THREE.MeshPhysicalMaterial(props);
+    applyPreviewTextureSources(physicalMaterial, material);
+    return physicalMaterial;
   }
 
   const p = clampMaterial(material).openpbr;
@@ -339,7 +358,80 @@ function createPreviewMaterial(material, props, previewMode) {
     sssMaterial.thicknessScaleNode = TSL.float(Math.max(0.1, p.subsurface_radius * sssWeight * 4));
   }
 
+  applyPreviewTextureSources(sssMaterial, material);
   return sssMaterial;
+}
+
+function applyPreviewTextureSources(threeMaterial, material) {
+  const textureLoader = new THREE.TextureLoader();
+  const texturesByName = new Map((material.textures || []).map((texture) => [texture.name, texture]));
+  for (const [key, source] of Object.entries(material.inputSources || {})) {
+    const target = THREE_TEXTURE_INPUTS[key];
+    if (!target) continue;
+
+    let texture = null;
+    if (source === "texture") {
+      const textureInfo = texturesByName.get(key);
+      texture = textureLoader.load(textureInfo?.file || `assets/textures/${key}.png`, () => {
+        threeMaterial.needsUpdate = true;
+      });
+      texture.colorSpace = target.color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+    } else if (source === "procedural") {
+      texture = createProceduralPreviewTexture(key, target.color);
+    }
+
+    if (!texture) continue;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.anisotropy = 8;
+    threeMaterial[target.map] = texture;
+    if (target.map === "alphaMap") {
+      threeMaterial.transparent = true;
+    }
+  }
+  threeMaterial.needsUpdate = true;
+}
+
+function createProceduralPreviewTexture(key, isColor = false) {
+  const size = 128;
+  const data = new Uint8Array(size * size * 4);
+  const seed = hashString(key);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const index = (y * size + x) * 4;
+      const grain = proceduralValue(x, y, seed);
+      if (isColor) {
+        data[index] = Math.round(170 + grain * 55);
+        data[index + 1] = Math.round(135 + grain * 45);
+        data[index + 2] = Math.round(95 + grain * 35);
+      } else {
+        const value = Math.round(128 + grain * 72);
+        data[index] = value;
+        data[index + 1] = value;
+        data[index + 2] = value;
+      }
+      data[index + 3] = 255;
+    }
+  }
+
+  const texture = new THREE.DataTexture(data, size, size, THREE.RGBAFormat);
+  texture.colorSpace = isColor ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+  texture.needsUpdate = true;
+  return texture;
+}
+
+function proceduralValue(x, y, seed) {
+  const wave = Math.sin((x * 0.23 + Math.sin(y * 0.11 + seed) * 4.0) + seed);
+  const grain = Math.sin((x + y * 1.7 + seed * 13.0) * 0.91) * 0.35;
+  return Math.max(-1, Math.min(1, wave * 0.65 + grain));
+}
+
+function hashString(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash % 997) / 997;
 }
 
 function rgbToCss(colorValue) {

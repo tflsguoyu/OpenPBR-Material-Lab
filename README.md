@@ -48,6 +48,13 @@ The Physical preview maps OpenPBR controls to Three.js as follows:
 - `geometry_opacity` -> `opacity`/`transparent`, except transmissive materials keep `opacity` at 1 because Three.js transmission expects that
 - `emission_color`, `emission_luminance` -> `emissive`, `emissiveIntensity`
 
+Texture/procedural source bindings are now preserved for every OpenPBR `float` and `color3` input in the graph and `.mtlx` export. In the Physical/SSS preview, supported bindings are mapped to the closest Three.js map slots:
+
+- Color textures use sRGB sampling and can drive `map`, `specularColorMap`, `sheenColorMap`, and `emissiveMap`.
+- Float textures use linear grayscale sampling and can drive `metalnessMap`, `roughnessMap`, `specularIntensityMap`, `transmissionMap`, `thicknessMap`, `clearcoatMap`, `clearcoatRoughnessMap`, `sheenRoughnessMap`, `alphaMap`, `iridescenceMap`, and `iridescenceThicknessMap`.
+- Procedural sources are represented as MaterialX `noise2d` nodes in graph/export and as deterministic preview noise textures in Physical/SSS.
+- OpenPBR inputs with no direct Three.js map equivalent remain represented in graph/export even when the live Physical/SSS preview cannot show them as maps.
+
 The Physical subsurface approximation is intentionally simple:
 
 - `subsurface_weight` blends `subsurface_color` into `base_color`
@@ -67,7 +74,7 @@ The SSS preview mode then adds the experimental WebGPU node material controls:
 The MaterialX preview mode is intentionally limited for this first pass:
 
 - It supports constant OpenPBR parameter values only.
-- It ignores MaterialX source-node, texture, and procedural connections for now.
+- It still ignores MaterialX source-node, texture, and procedural connections at live shader-generation time, even though graph and `.mtlx` export preserve those connections.
 - It uses MaterialX `JsMaterialXGenShader.js`, `.wasm`, and `.data` to generate WebGL 2 ESSL shaders.
 - Three.js still owns the canvas, camera, OBJ test ball, split comparison UI, and per-object matrix uniforms.
 - It uses `assets/envmap/san_giuseppe_bridge_split.hdr`, `assets/envmap/san_giuseppe_bridge_split_irradiance.hdr`, and `assets/envmap/san_giuseppe_bridge_split.mtlx` for MaterialX image-based lighting and the matching split directional light.
@@ -136,9 +143,6 @@ The validation script checks the built-in material presets and every local OpenP
 
 ## TODO
 
-- Add texture/procedural connections for all OpenPBR `float` and `color3` inputs, matching the official MaterialX `open_pbr_surface` nodedef.
-- Treat `color3` inputs as color textures, including `base_color`, `specular_color`, `transmission_color`, `subsurface_color`, `fuzz_color`, `coat_color`, and `emission_color`.
-- Treat `float` inputs as grayscale maps, including weights, roughness values, IOR values, transmission depth, subsurface radius, thin-film controls, emission luminance, and `geometry_opacity`.
 - Add dedicated map handling for `geometry_normal`, `geometry_coat_normal`, `geometry_tangent`, and `geometry_coat_tangent`.
 - Keep `geometry_thin_walled` as a uniform material-level boolean instead of a texture input.
 
