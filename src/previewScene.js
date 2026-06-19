@@ -5,13 +5,13 @@ import { WebGPURenderer, MeshSSSNodeMaterial, TSL } from "three/webgpu";
 import { OrbitControls as ThreeOrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx28";
+import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx29";
 import {
   createMaterialXPreviewMaterial,
   prepareMaterialXGeometry,
   updateMaterialXTransmissionTarget,
   updateMaterialXUniforms
-} from "./materialxPreview.js?v=mtlx28";
+} from "./materialxPreview.js?v=mtlx29";
 
 const h = React.createElement;
 
@@ -32,19 +32,19 @@ const TEST_BALL_MESHES = [
 const ENVIRONMENT_MAP_URL = "./assets/envmap/san_giuseppe_bridge.hdr";
 const THREE_TEXTURE_INPUTS = {
   base_color: { map: "map", color: true, neutralColorProperty: "color" },
-  base_metalness: { map: "metalnessMap" },
-  specular_weight: { map: "specularIntensityMap" },
+  base_metalness: { map: "metalnessMap", neutralScalarProperty: "metalness" },
+  specular_weight: { map: "specularIntensityMap", neutralScalarProperty: "specularIntensity" },
   specular_color: { map: "specularColorMap", color: true, neutralColorProperty: "specularColor" },
-  specular_roughness: { map: "roughnessMap" },
-  transmission_weight: { map: "transmissionMap" },
-  transmission_depth: { map: "thicknessMap" },
-  coat_weight: { map: "clearcoatMap" },
-  coat_roughness: { map: "clearcoatRoughnessMap" },
+  specular_roughness: { map: "roughnessMap", neutralScalarProperty: "roughness" },
+  transmission_weight: { map: "transmissionMap", neutralScalarProperty: "transmission" },
+  transmission_depth: { map: "thicknessMap", neutralScalarProperty: "thickness" },
+  coat_weight: { map: "clearcoatMap", neutralScalarProperty: "clearcoat" },
+  coat_roughness: { map: "clearcoatRoughnessMap", neutralScalarProperty: "clearcoatRoughness" },
   fuzz_color: { map: "sheenColorMap", color: true, neutralColorProperty: "sheenColor" },
-  fuzz_roughness: { map: "sheenRoughnessMap" },
+  fuzz_roughness: { map: "sheenRoughnessMap", neutralScalarProperty: "sheenRoughness" },
   emission_color: { map: "emissiveMap", color: true, neutralColorProperty: "emissive" },
-  geometry_opacity: { map: "alphaMap" },
-  thin_film_weight: { map: "iridescenceMap" },
+  geometry_opacity: { map: "alphaMap", neutralScalarProperty: "opacity" },
+  thin_film_weight: { map: "iridescenceMap", neutralScalarProperty: "iridescence" },
   thin_film_thickness: { map: "iridescenceThicknessMap" }
 };
 
@@ -373,16 +373,18 @@ function applyPreviewTextureSources(threeMaterial, material) {
     if (source === "texture") {
       const textureInfo = texturesByName.get(key);
       const fallbackColor = cloneMaterialColor(threeMaterial, target.neutralColorProperty);
+      const fallbackScalar = readMaterialScalar(threeMaterial, target.neutralScalarProperty);
       texture = textureLoader.load(
         textureInfo?.file || `assets/textures/${key}.png`,
         () => {
-          neutralizeTextureColor(threeMaterial, target);
+          neutralizeTextureFallbacks(threeMaterial, target);
           threeMaterial.needsUpdate = true;
         },
         undefined,
         () => {
           threeMaterial[target.map] = null;
           restoreMaterialColor(threeMaterial, target.neutralColorProperty, fallbackColor);
+          restoreMaterialScalar(threeMaterial, target.neutralScalarProperty, fallbackScalar);
           threeMaterial.needsUpdate = true;
         }
       );
@@ -397,7 +399,7 @@ function applyPreviewTextureSources(threeMaterial, material) {
     texture.anisotropy = 8;
     threeMaterial[target.map] = texture;
     if (source === "procedural") {
-      neutralizeTextureColor(threeMaterial, target);
+      neutralizeTextureFallbacks(threeMaterial, target);
     }
     if (target.map === "alphaMap") {
       threeMaterial.transparent = true;
@@ -416,9 +418,26 @@ function neutralizeTextureColor(threeMaterial, target) {
   }
 }
 
+function neutralizeTextureFallbacks(threeMaterial, target) {
+  neutralizeTextureColor(threeMaterial, target);
+  if (target.neutralScalarProperty && target.neutralScalarProperty in threeMaterial) {
+    threeMaterial[target.neutralScalarProperty] = 1;
+  }
+}
+
 function restoreMaterialColor(threeMaterial, property, color) {
   if (property && color && threeMaterial[property]?.copy) {
     threeMaterial[property].copy(color);
+  }
+}
+
+function readMaterialScalar(threeMaterial, property) {
+  return property && typeof threeMaterial[property] === "number" ? threeMaterial[property] : null;
+}
+
+function restoreMaterialScalar(threeMaterial, property, value) {
+  if (property && value != null && property in threeMaterial) {
+    threeMaterial[property] = value;
   }
 }
 
