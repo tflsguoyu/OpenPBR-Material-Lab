@@ -5,13 +5,13 @@ import { WebGPURenderer, MeshSSSNodeMaterial, TSL } from "three/webgpu";
 import { OrbitControls as ThreeOrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx26";
+import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx28";
 import {
   createMaterialXPreviewMaterial,
   prepareMaterialXGeometry,
   updateMaterialXTransmissionTarget,
   updateMaterialXUniforms
-} from "./materialxPreview.js?v=mtlx26";
+} from "./materialxPreview.js?v=mtlx28";
 
 const h = React.createElement;
 
@@ -31,18 +31,18 @@ const TEST_BALL_MESHES = [
 ];
 const ENVIRONMENT_MAP_URL = "./assets/envmap/san_giuseppe_bridge.hdr";
 const THREE_TEXTURE_INPUTS = {
-  base_color: { map: "map", color: true },
+  base_color: { map: "map", color: true, neutralColorProperty: "color" },
   base_metalness: { map: "metalnessMap" },
   specular_weight: { map: "specularIntensityMap" },
-  specular_color: { map: "specularColorMap", color: true },
+  specular_color: { map: "specularColorMap", color: true, neutralColorProperty: "specularColor" },
   specular_roughness: { map: "roughnessMap" },
   transmission_weight: { map: "transmissionMap" },
   transmission_depth: { map: "thicknessMap" },
   coat_weight: { map: "clearcoatMap" },
   coat_roughness: { map: "clearcoatRoughnessMap" },
-  fuzz_color: { map: "sheenColorMap", color: true },
+  fuzz_color: { map: "sheenColorMap", color: true, neutralColorProperty: "sheenColor" },
   fuzz_roughness: { map: "sheenRoughnessMap" },
-  emission_color: { map: "emissiveMap", color: true },
+  emission_color: { map: "emissiveMap", color: true, neutralColorProperty: "emissive" },
   geometry_opacity: { map: "alphaMap" },
   thin_film_weight: { map: "iridescenceMap" },
   thin_film_thickness: { map: "iridescenceThicknessMap" }
@@ -372,9 +372,20 @@ function applyPreviewTextureSources(threeMaterial, material) {
     let texture = null;
     if (source === "texture") {
       const textureInfo = texturesByName.get(key);
-      texture = textureLoader.load(textureInfo?.file || `assets/textures/${key}.png`, () => {
-        threeMaterial.needsUpdate = true;
-      });
+      const fallbackColor = cloneMaterialColor(threeMaterial, target.neutralColorProperty);
+      texture = textureLoader.load(
+        textureInfo?.file || `assets/textures/${key}.png`,
+        () => {
+          neutralizeTextureColor(threeMaterial, target);
+          threeMaterial.needsUpdate = true;
+        },
+        undefined,
+        () => {
+          threeMaterial[target.map] = null;
+          restoreMaterialColor(threeMaterial, target.neutralColorProperty, fallbackColor);
+          threeMaterial.needsUpdate = true;
+        }
+      );
       texture.colorSpace = target.color ? THREE.SRGBColorSpace : THREE.NoColorSpace;
     } else if (source === "procedural") {
       texture = createProceduralPreviewTexture(key, target.color);
@@ -385,14 +396,30 @@ function applyPreviewTextureSources(threeMaterial, material) {
     texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 8;
     threeMaterial[target.map] = texture;
-    if (key === "base_color" && target.map === "map") {
-      threeMaterial.color.set(0xffffff);
+    if (source === "procedural") {
+      neutralizeTextureColor(threeMaterial, target);
     }
     if (target.map === "alphaMap") {
       threeMaterial.transparent = true;
     }
   }
   threeMaterial.needsUpdate = true;
+}
+
+function cloneMaterialColor(threeMaterial, property) {
+  return property && threeMaterial[property]?.clone ? threeMaterial[property].clone() : null;
+}
+
+function neutralizeTextureColor(threeMaterial, target) {
+  if (target.neutralColorProperty && threeMaterial[target.neutralColorProperty]?.set) {
+    threeMaterial[target.neutralColorProperty].set(0xffffff);
+  }
+}
+
+function restoreMaterialColor(threeMaterial, property, color) {
+  if (property && color && threeMaterial[property]?.copy) {
+    threeMaterial[property].copy(color);
+  }
 }
 
 function createProceduralPreviewTexture(key, isColor = false) {

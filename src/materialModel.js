@@ -69,27 +69,27 @@ export const DEFAULT_MATERIAL = {
 export const PREVIEW_SHELL_THICKNESS = 0.117;
 
 export const PARQUET_WOOD_MATERIAL = {
-  name: "warm parquet wood",
-  description: "Warm butcher-block/parquet wood with varied plank tones, directional grain, satin finish, and subtle clear coat.",
+  name: "polished restaurant wood tabletop",
+  description: "Dark amber polished wooden tabletop with strong longitudinal grain, satin varnish, warm specular response, and subtle clearcoat roughness variation.",
   openpbr: {
     base_weight: 1,
-    base_color: [0.72, 0.43, 0.19],
-    base_diffuse_roughness: 0.38,
+    base_color: [0.58, 0.25, 0.08],
+    base_diffuse_roughness: 0.32,
     base_metalness: 0,
-    specular_weight: 0.55,
-    specular_color: [1, 0.92, 0.82],
-    specular_roughness: 0.48,
-    specular_roughness_anisotropy: 0.35,
-    specular_ior: 1.48,
+    specular_weight: 0.7,
+    specular_color: [1, 0.82, 0.62],
+    specular_roughness: 0.34,
+    specular_roughness_anisotropy: 0.42,
+    specular_ior: 1.5,
     transmission_weight: 0,
     subsurface_weight: 0,
-    coat_weight: 0.18,
-    coat_color: [1, 0.9, 0.78],
-    coat_roughness: 0.32,
-    coat_ior: 1.5,
-    fuzz_weight: 0.04,
-    fuzz_color: [0.9, 0.62, 0.34],
-    fuzz_roughness: 0.72,
+    coat_weight: 0.36,
+    coat_color: [1, 0.82, 0.58],
+    coat_roughness: 0.22,
+    coat_ior: 1.52,
+    fuzz_weight: 0.02,
+    fuzz_color: [0.7, 0.35, 0.12],
+    fuzz_roughness: 0.64,
     emission_luminance: 0,
     geometry_opacity: 1,
     geometry_thin_walled: false,
@@ -121,13 +121,24 @@ export const PARQUET_WOOD_MATERIAL = {
   ],
   inputSources: {
     base_color: "texture",
-    specular_roughness: "procedural"
+    specular_roughness: "texture",
+    coat_roughness: "texture"
   },
   textures: [
     {
       name: "base_color",
-      file: "assets/textures/base_color.png",
+      file: "assets/textures/polished_wood_base_color.png",
       colorspace: "srgb"
+    },
+    {
+      name: "specular_roughness",
+      file: "assets/textures/polished_wood_specular_roughness.png",
+      colorspace: "linear"
+    },
+    {
+      name: "coat_roughness",
+      file: "assets/textures/polished_wood_coat_roughness.png",
+      colorspace: "linear"
     }
   ],
   procedural: {}

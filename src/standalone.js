@@ -15,8 +15,8 @@ import {
   toBlenderPython,
   toMaterialXGraph,
   toMaterialX
-} from "./materialModel.js?v=mtlx26";
-import { PreviewCompare } from "./previewScene.js?v=mtlx26";
+} from "./materialModel.js?v=mtlx28";
+import { PreviewCompare } from "./previewScene.js?v=mtlx28";
 
 const h = React.createElement;
 const INITIAL_MATERIAL = MATERIAL_PRESETS[0];
