@@ -143,6 +143,9 @@ The validation script checks the built-in material presets and every local OpenP
 
 ## TODO
 
+- Add a procedural graph baker for Physical/SSS: evaluate supported procedural nodes in JavaScript and bake them into texture maps before assigning them to Three.js material map slots.
+- Replace the current generic procedural preview noise with node-specific procedural evaluators, such as wood grain, linear roughness grain, and soft varnish variation.
+- Expand the MaterialX live shader path beyond constant inputs by translating supported procedural graph nodes into standard MaterialX node chains such as `noise2d`, `fractal3d`, ramps, math nodes, and coordinate scaling.
 - Add dedicated map handling for `geometry_normal`, `geometry_coat_normal`, `geometry_tangent`, and `geometry_coat_tangent`.
 - Keep `geometry_thin_walled` as a uniform material-level boolean instead of a texture input.
 
