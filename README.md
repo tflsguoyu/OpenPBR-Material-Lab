@@ -70,6 +70,20 @@ The MaterialX preview mode is intentionally limited for this first pass:
 - It ignores MaterialX source-node, texture, and procedural connections for now.
 - It uses MaterialX `JsMaterialXGenShader.js`, `.wasm`, and `.data` to generate WebGL 2 ESSL shaders.
 - Three.js still owns the canvas, camera, OBJ test ball, split comparison UI, and per-object matrix uniforms.
+- It uses `assets/envmap/san_giuseppe_bridge_split.hdr`, `assets/envmap/san_giuseppe_bridge_split_irradiance.hdr`, and `assets/envmap/san_giuseppe_bridge_split.mtlx` for MaterialX image-based lighting and the matching split directional light.
+- OBJ meshes without tangents get generated fallback tangents, because MaterialX OpenPBR uses tangent-space inputs for anisotropy and layered highlights.
+
+## Rendering Alignment Notes
+
+These notes capture the current MaterialX/Physical/SSS preview decisions and why they were made:
+
+- MaterialX uses the same `san_giuseppe_bridge` split lighting assets as the MaterialX viewer: radiance HDR for specular environment lookups, irradiance HDR for diffuse environment lookups, and the `.mtlx` light rig for the extracted directional light. This keeps MaterialX-generated OpenPBR shaders closer to the official viewer's lighting setup.
+- The MaterialX light rig and environment matrix are rotated by `Y +90deg`, matching the MaterialX viewer helper convention. Without this, mirror-like materials showed the same environment with a visible angular offset.
+- The Physical/SSS preview still uses `assets/envmap/san_giuseppe_bridge.hdr` as its Three.js scene environment. It does not load the MaterialX split irradiance map or the `.mtlx` directional light because those are specific to MaterialX shader generation.
+- MaterialX transparent transmission does not sample the environment directly in this preview. The generated transparent shader branch is patched to sample a screen-space scene color target instead, so internal geometry such as `mesh000` can appear through transmissive `mesh001`/`mesh002` instead of always showing an inverted environment-only refraction.
+- `transmission_depth` drives the MaterialX screen-space refraction offset. `geometry_thin_walled=true` forces that depth to `0`, while `geometry_thin_walled=false` uses the parameter value directly.
+- Physical/SSS also treats `transmission_depth=0` as a real value. The UI default is the preview shell thickness (`0.117`) for the test ball, but dragging the control to `0` no longer silently restores that default at render time.
+- OpenPBR UI ranges now follow the official parameter guidance more closely: soft slider ranges are kept practical for editing, while hard clamps allow physically meaningful values beyond the visible slider where the spec allows them.
 
 ## Run Locally
 
@@ -105,7 +119,7 @@ openpbr-material-lab/
   vendor/
     materialx/               Official MaterialX JS/WASM shader generator assets
   assets/
-    envmap.hdr               Preview environment map
+    envmap/                  Preview environment maps
     material_test_ball/      Local OBJ preview model
     examples/                Local OpenPBR example .mtlx files
   scripts/

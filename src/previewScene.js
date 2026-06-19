@@ -5,12 +5,13 @@ import { WebGPURenderer, MeshSSSNodeMaterial, TSL } from "three/webgpu";
 import { OrbitControls as ThreeOrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx6";
+import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx22";
 import {
   createMaterialXPreviewMaterial,
   prepareMaterialXGeometry,
+  updateMaterialXTransmissionTarget,
   updateMaterialXUniforms
-} from "./materialxPreview.js?v=mtlx6";
+} from "./materialxPreview.js?v=mtlx22";
 
 const h = React.createElement;
 
@@ -28,6 +29,7 @@ const TEST_BALL_MESHES = [
     position: [0.156382, 0.777229, 0.161698]
   }]
 ];
+const ENVIRONMENT_MAP_URL = "./assets/envmap/san_giuseppe_bridge.hdr";
 
 export function PreviewCompare({
   generatedMaterial,
@@ -128,6 +130,7 @@ function PreviewCanvas({ material, previewMode, interactive = false, cameraSyncR
   },
     h("color", { attach: "background", args: ["#15171b"] }),
     h(HdriLighting, null),
+    h(MaterialXTransmissionCapture, { enabled: previewMode === "materialx" }),
     h(Suspense, { fallback: null },
       h(MaterialTestBall, { material, previewMode: previewMode === "materialx" ? "materialx" : useWebGpu ? "sss" : "physical" })
     ),
@@ -173,7 +176,7 @@ function HdriLighting() {
     let cancelled = false;
     const loader = new HDRLoader();
 
-    loader.load("./assets/envmap.hdr", (texture) => {
+    loader.load(ENVIRONMENT_MAP_URL, (texture) => {
       if (cancelled) {
         texture.dispose();
         return;
@@ -192,6 +195,72 @@ function HdriLighting() {
       }
     };
   }, [scene]);
+
+  return null;
+}
+
+function MaterialXTransmissionCapture({ enabled }) {
+  const { gl, scene, camera, size } = useThree();
+  const targetRef = useRef(null);
+  const drawingSizeRef = useRef(new THREE.Vector2());
+
+  useEffect(() => {
+    const target = new THREE.WebGLRenderTarget(1, 1, {
+      samples: 0,
+      type: THREE.HalfFloatType
+    });
+    target.texture.name = "MaterialX Scene Transmission";
+    target.texture.generateMipmaps = false;
+    target.texture.minFilter = THREE.LinearFilter;
+    target.texture.magFilter = THREE.LinearFilter;
+    targetRef.current = target;
+    return () => {
+      targetRef.current = null;
+      target.dispose();
+    };
+  }, [size.width, size.height]);
+
+  useFrame(() => {
+    const target = targetRef.current;
+    if (!enabled || !target || !gl.setRenderTarget) return;
+
+    const drawingSize = gl.getDrawingBufferSize(drawingSizeRef.current);
+    const targetWidth = Math.max(1, drawingSize.x);
+    const targetHeight = Math.max(1, drawingSize.y);
+    if (target.width !== targetWidth || target.height !== targetHeight) {
+      target.setSize(targetWidth, targetHeight);
+    }
+
+    const hiddenMeshes = [];
+    const materialXMaterials = new Set();
+    scene.traverse((child) => {
+      const material = child.material;
+      if (child.isMesh && material?.userData?.isMaterialXPreview) {
+        materialXMaterials.add(material);
+        if (material.transparent) {
+          hiddenMeshes.push(child);
+          child.visible = false;
+        }
+      }
+    });
+    if (!materialXMaterials.size) return;
+
+    const previousTarget = gl.getRenderTarget();
+    const previousAutoClear = gl.autoClear;
+    gl.autoClear = true;
+    gl.setRenderTarget(target);
+    gl.clear();
+    gl.render(scene, camera);
+    gl.setRenderTarget(previousTarget);
+    gl.autoClear = previousAutoClear;
+
+    hiddenMeshes.forEach((mesh) => {
+      mesh.visible = true;
+    });
+    materialXMaterials.forEach((material) => {
+      updateMaterialXTransmissionTarget(material, target.texture, { width: targetWidth, height: targetHeight });
+    });
+  });
 
   return null;
 }

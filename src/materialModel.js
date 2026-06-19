@@ -66,6 +66,8 @@ export const DEFAULT_MATERIAL = {
   }
 };
 
+export const PREVIEW_SHELL_THICKNESS = 0.117;
+
 export const MATERIAL_PRESETS = [
   DEFAULT_MATERIAL,
   {
@@ -411,21 +413,21 @@ export const OPENPBR_SCHEMA = [
   ["base_color", "Color", "color3", [0.8, 0.8, 0.8], 0, 1, 0.01, "Base", "simple"],
   ["base_diffuse_roughness", "Diffuse roughness", "float", 0, 0, 1, 0.01, "Base", "advanced"],
   ["base_metalness", "Metalness", "float", 0, 0, 1, 0.01, "Base", "simple"],
-  ["specular_weight", "Weight", "float", 1, 0, 1, 0.01, "Specular", "advanced"],
+  ["specular_weight", "Weight", "float", 1, 0, 1, 0.01, "Specular", "advanced", 0, Infinity],
   ["specular_color", "Color", "color3", [1, 1, 1], 0, 1, 0.01, "Specular", "advanced"],
   ["specular_roughness", "Roughness", "float", 0.3, 0, 1, 0.01, "Specular", "simple"],
-  ["specular_ior", "IOR", "float", 1.5, 1, 3, 0.01, "Specular", "simple"],
+  ["specular_ior", "IOR", "float", 1.5, 1, 3, 0.01, "Specular", "simple", 0, Infinity],
   ["specular_roughness_anisotropy", "Roughness anisotropy", "float", 0, 0, 1, 0.01, "Specular", "simple"],
   ["transmission_weight", "Weight", "float", 0, 0, 1, 0.01, "Transmission", "advanced"],
   ["transmission_color", "Color", "color3", [1, 1, 1], 0, 1, 0.01, "Transmission", "advanced"],
-  ["transmission_depth", "Depth", "float", 0, 0, 10, 0.01, "Transmission", "advanced"],
+  ["transmission_depth", "Depth", "float", PREVIEW_SHELL_THICKNESS, 0, 1, 0.001, "Transmission", "advanced", 0, Infinity],
   ["transmission_scatter", "Scatter", "color3", [0, 0, 0], 0, 1, 0.01, "Transmission", "advanced"],
   ["transmission_scatter_anisotropy", "Scatter anisotropy", "float", 0, -1, 1, 0.01, "Transmission", "advanced"],
   ["transmission_dispersion_scale", "Dispersion scale", "float", 0, 0, 1, 0.01, "Transmission", "advanced"],
-  ["transmission_dispersion_abbe_number", "Dispersion Abbe number", "float", 20, 0, 100, 1, "Transmission", "advanced"],
+  ["transmission_dispersion_abbe_number", "Dispersion Abbe number", "float", 20, 9, 91, 1, "Transmission", "advanced", 0, Infinity],
   ["subsurface_weight", "Weight", "float", 0, 0, 1, 0.01, "Subsurface", "advanced"],
   ["subsurface_color", "Color", "color3", [0.8, 0.8, 0.8], 0, 1, 0.01, "Subsurface", "advanced"],
-  ["subsurface_radius", "Radius", "float", 1, 0, 10, 0.01, "Subsurface", "advanced"],
+  ["subsurface_radius", "Radius", "float", 1, 0, 1, 0.001, "Subsurface", "advanced", 0, Infinity],
   ["subsurface_radius_scale", "Radius scale", "color3", [1, 0.5, 0.25], 0, 1, 0.01, "Subsurface", "advanced"],
   ["subsurface_scatter_anisotropy", "Scatter anisotropy", "float", 0, -1, 1, 0.01, "Subsurface", "advanced"],
   ["fuzz_weight", "Weight", "float", 0, 0, 1, 0.01, "Fuzz", "simple"],
@@ -435,12 +437,12 @@ export const OPENPBR_SCHEMA = [
   ["coat_color", "Color", "color3", [1, 1, 1], 0, 1, 0.01, "Coat", "advanced"],
   ["coat_roughness", "Roughness", "float", 0, 0, 1, 0.01, "Coat", "simple"],
   ["coat_roughness_anisotropy", "Roughness anisotropy", "float", 0, 0, 1, 0.01, "Coat", "advanced"],
-  ["coat_ior", "IOR", "float", 1.6, 1, 3, 0.01, "Coat", "advanced"],
+  ["coat_ior", "IOR", "float", 1.6, 1, 3, 0.01, "Coat", "advanced", 0, Infinity],
   ["coat_darkening", "Darkening", "float", 1, 0, 1, 0.01, "Coat", "advanced"],
   ["thin_film_weight", "Weight", "float", 0, 0, 1, 0.01, "Thin Film", "simple"],
-  ["thin_film_thickness", "Thickness", "float", 0.5, 0, 1.2, 0.001, "Thin Film", "simple"],
-  ["thin_film_ior", "IOR", "float", 1.4, 1, 3, 0.01, "Thin Film", "advanced"],
-  ["emission_luminance", "Luminance", "float", 0, 0, 1000, 1, "Emission", "simple"],
+  ["thin_film_thickness", "Thickness", "float", 0.5, 0, 1, 0.001, "Thin Film", "simple", 0, Infinity],
+  ["thin_film_ior", "IOR", "float", 1.4, 1, 3, 0.01, "Thin Film", "advanced", 0, Infinity],
+  ["emission_luminance", "Luminance", "float", 0, 0, 1000, 1, "Emission", "simple", 0, Infinity],
   ["emission_color", "Color", "color3", [1, 1, 1], 0, 1, 0.01, "Emission", "simple"],
   ["geometry_opacity", "Opacity", "float", 1, 0, 1, 0.01, "Geometry", "simple"],
   ["geometry_thin_walled", "Thin walled", "boolean", false, 0, 1, 1, "Geometry", "advanced"]
@@ -464,14 +466,14 @@ export function clampMaterial(material) {
     ? next.explicitOpenPbrKeys
     : Object.keys(source);
   next.openpbr = {};
-  for (const [key, , type, defaultValue, min, max] of OPENPBR_SCHEMA) {
+  for (const [key, , type, defaultValue, min, max, , , , hardMin = min, hardMax = max] of OPENPBR_SCHEMA) {
     const value = source[key] ?? defaultValue;
     if (type === "color3") {
       next.openpbr[key] = clampColor(value);
     } else if (type === "boolean") {
       next.openpbr[key] = Boolean(value);
     } else {
-      next.openpbr[key] = clampNumber(value, min, max);
+      next.openpbr[key] = clampNumber(value, hardMin, hardMax);
     }
   }
   next.explicitOpenPbrKeys = normalizeOpenPbrKeys(explicitKeys);
@@ -539,7 +541,7 @@ export function toThreePhysicalProps(material) {
   return {
     color: rgbToHex(baseColor),
     metalness: p.base_metalness * (1 - sssWeight * 0.7),
-    roughness: Math.max(0.04, p.specular_roughness * (1 - sssWeight * 0.18)),
+    roughness: Math.max(transmission > 0 ? 0 : 0.04, p.specular_roughness * (1 - sssWeight * 0.18)),
     anisotropy: p.specular_roughness_anisotropy,
     ior: threeIor,
     specularIntensity: p.specular_weight,
@@ -553,7 +555,7 @@ export function toThreePhysicalProps(material) {
     iridescenceIOR: clampNumber(p.thin_film_ior, 1, 2.333),
     iridescenceThicknessRange: [Math.max(1, p.thin_film_thickness * 1000 - 80), p.thin_film_thickness * 1000 + 80],
     transmission,
-    thickness: p.geometry_thin_walled ? 0 : Math.max(0.001, p.transmission_depth + sssWeight * p.subsurface_radius * 0.35),
+    thickness: p.geometry_thin_walled ? 0 : Math.max(0, p.transmission_depth + sssWeight * p.subsurface_radius * 0.35),
     attenuationColor: rgbToHex(mixColor(p.transmission_color, sssColor, sssWeight)),
     attenuationDistance: p.transmission_depth > 0 || sssWeight > 0
       ? Math.max(0.001, p.transmission_depth + p.subsurface_radius * sssWeight)
