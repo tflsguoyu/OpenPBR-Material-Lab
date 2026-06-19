@@ -5,13 +5,13 @@ import { WebGPURenderer, MeshSSSNodeMaterial, TSL } from "three/webgpu";
 import { OrbitControls as ThreeOrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx25";
+import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx26";
 import {
   createMaterialXPreviewMaterial,
   prepareMaterialXGeometry,
   updateMaterialXTransmissionTarget,
   updateMaterialXUniforms
-} from "./materialxPreview.js?v=mtlx25";
+} from "./materialxPreview.js?v=mtlx26";
 
 const h = React.createElement;
 
@@ -385,6 +385,9 @@ function applyPreviewTextureSources(threeMaterial, material) {
     texture.wrapT = THREE.RepeatWrapping;
     texture.anisotropy = 8;
     threeMaterial[target.map] = texture;
+    if (key === "base_color" && target.map === "map") {
+      threeMaterial.color.set(0xffffff);
+    }
     if (target.map === "alphaMap") {
       threeMaterial.transparent = true;
     }

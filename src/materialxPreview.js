@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toMaterialX } from "./materialModel.js?v=mtlx25";
+import { clampMaterial, toMaterialX } from "./materialModel.js?v=mtlx26";
 
 let runtimePromise = null;
 let environmentPromise = null;
