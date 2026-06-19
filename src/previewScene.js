@@ -5,7 +5,12 @@ import { WebGPURenderer, MeshSSSNodeMaterial, TSL } from "three/webgpu";
 import { OrbitControls as ThreeOrbitControls } from "three/addons/controls/OrbitControls.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
 import { HDRLoader } from "three/addons/loaders/HDRLoader.js";
-import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=sss8";
+import { clampMaterial, toThreePhysicalProps } from "./materialModel.js?v=mtlx6";
+import {
+  createMaterialXPreviewMaterial,
+  prepareMaterialXGeometry,
+  updateMaterialXUniforms
+} from "./materialxPreview.js?v=mtlx6";
 
 const h = React.createElement;
 
@@ -36,9 +41,11 @@ export function PreviewCompare({
   const cameraSyncRef = useRef(null);
   const [fps, setFps] = useState(null);
   const webGpuAvailable = canUseWebGpu();
-  const rendererStatus = previewMode === "sss"
-    ? webGpuAvailable ? "Renderer: WebGPU SSS" : "Renderer: WebGL Physical fallback"
-    : "Renderer: WebGL Physical";
+  const rendererStatus = previewMode === "materialx"
+    ? "Renderer: MaterialX ESSL constants"
+    : previewMode === "sss"
+      ? webGpuAvailable ? "Renderer: WebGPU SSS" : "Renderer: WebGL Physical fallback"
+      : "Renderer: WebGL Physical";
 
   function updateSplitFromClientX(clientX) {
     const bounds = shellRef.current?.getBoundingClientRect();
@@ -83,7 +90,11 @@ export function PreviewCompare({
       h("button", {
         className: previewMode === "sss" ? "active" : "",
         onClick: () => onPreviewModeChange("sss")
-      }, "SSS")
+      }, "SSS"),
+      h("button", {
+        className: previewMode === "materialx" ? "active" : "",
+        onClick: () => onPreviewModeChange("materialx")
+      }, "MaterialX")
     ),
     h("div", { className: "preview-renderer-status" }, rendererStatus),
     h("div", { className: "preview-fps-status" }, fps == null ? "FPS: --" : `FPS: ${fps}`),
@@ -118,7 +129,7 @@ function PreviewCanvas({ material, previewMode, interactive = false, cameraSyncR
     h("color", { attach: "background", args: ["#15171b"] }),
     h(HdriLighting, null),
     h(Suspense, { fallback: null },
-      h(MaterialTestBall, { material, previewMode: useWebGpu ? "sss" : "physical" })
+      h(MaterialTestBall, { material, previewMode: previewMode === "materialx" ? "materialx" : useWebGpu ? "sss" : "physical" })
     ),
     onFps ? h(FpsSampler, { onFps }) : null,
     interactive ? h(OrbitControls, { cameraSyncRef }) : h(CameraFollower, { cameraSyncRef })
@@ -186,14 +197,46 @@ function HdriLighting() {
 }
 
 function MaterialTestBall({ material, previewMode }) {
+  const { gl } = useThree();
   const props = toThreePhysicalProps(material);
-  const testMaterial = useMemo(() => createPreviewMaterial(material, props, previewMode), [material, previewMode]);
+  const [materialXPreviewMaterial, setMaterialXPreviewMaterial] = useState(null);
+  const physicalFallbackMaterial = useMemo(() => createPreviewMaterial(material, props, previewMode), [material, previewMode]);
+  const testMaterial = previewMode === "materialx" && materialXPreviewMaterial
+    ? materialXPreviewMaterial
+    : physicalFallbackMaterial;
   const neutralMaterial = useMemo(() => new THREE.MeshStandardMaterial({
     color: "#777b82",
     roughness: 0.58,
     metalness: 0,
     side: THREE.DoubleSide
   }), []);
+
+  useEffect(() => {
+    if (previewMode !== "materialx") {
+      setMaterialXPreviewMaterial(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+    createMaterialXPreviewMaterial(material, gl).then((nextMaterial) => {
+      if (cancelled) {
+        nextMaterial.dispose();
+        return;
+      }
+      setMaterialXPreviewMaterial((previous) => {
+        previous?.dispose();
+        return nextMaterial;
+      });
+    }).catch((error) => {
+      console.error("MaterialX preview failed:", error);
+      if (!cancelled) setMaterialXPreviewMaterial(null);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [material, previewMode, gl]);
+
   const entries = useMemo(() => TEST_BALL_MESHES.map(([key, url, materialRole, transform]) => [
     key,
     url,
@@ -248,6 +291,10 @@ function useObjMeshes(entries) {
           child.castShadow = true;
           child.receiveShadow = true;
           child.geometry = smoothGeometry(child.geometry);
+          prepareMaterialXGeometry(child.geometry);
+          child.onBeforeRender = (_renderer, _scene, camera) => {
+            updateMaterialXUniforms(child, child.material, camera);
+          };
         }
       });
       if (transform) {

@@ -23,12 +23,13 @@ User description or preset
   -> Export: JSON / .mtlx / Blender Python
 ```
 
-The preview has two renderer modes:
+The preview has three renderer modes:
 
 - **Physical** keeps the original WebGL `MeshPhysicalMaterial` path. It maps OpenPBR values to the closest Three.js physical material controls and includes a lightweight subsurface visual approximation.
 - **SSS** uses the experimental Three.js WebGPU `MeshSSSNodeMaterial` path when WebGPU is available. This preserves the old Physical renderer as a fallback while adding a dedicated subsurface scattering term.
+- **MaterialX** uses the official MaterialX JavaScript shader generator files vendored in `vendor/materialx`. It builds ESSL GLSL from the exported `.mtlx`, then renders it through a Three.js `RawShaderMaterial`.
 
-Both modes are approximations of OpenPBR rather than full reference OpenPBR renderers.
+All modes are approximations of OpenPBR rather than full reference OpenPBR renderers.
 
 ## Preview Mapping Notes
 
@@ -63,6 +64,13 @@ The SSS preview mode then adds the experimental WebGPU node material controls:
 - `subsurface_radius` -> scattering scale and power
 - `subsurface_scatter_anisotropy` -> distortion strength
 
+The MaterialX preview mode is intentionally limited for this first pass:
+
+- It supports constant OpenPBR parameter values only.
+- It ignores MaterialX source-node, texture, and procedural connections for now.
+- It uses MaterialX `JsMaterialXGenShader.js`, `.wasm`, and `.data` to generate WebGL 2 ESSL shaders.
+- Three.js still owns the canvas, camera, OBJ test ball, split comparison UI, and per-object matrix uniforms.
+
 ## Run Locally
 
 From this folder:
@@ -91,8 +99,11 @@ openpbr-material-lab/
   src/
     standalone.js            App state, panels, and material editing flow
     previewScene.js          Three.js preview scene, OBJ loading, camera sync
+    materialxPreview.js      MaterialX constant-parameter shader preview bridge
     materialModel.js         OpenPBR, MaterialX, export logic
     app.css                  UI styles
+  vendor/
+    materialx/               Official MaterialX JS/WASM shader generator assets
   assets/
     envmap.hdr               Preview environment map
     material_test_ball/      Local OBJ preview model
